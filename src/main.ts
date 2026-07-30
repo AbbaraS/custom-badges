@@ -1,16 +1,40 @@
-import { Plugin, MarkdownPostProcessor, setIcon, editorLivePreviewField } from 'obsidian'
+import { App, PluginSettingTab, Setting, Plugin, MarkdownPostProcessor, setIcon, editorLivePreviewField } from 'obsidian'
 import { RangeSetBuilder } from "@codemirror/state"
 import { ViewPlugin, WidgetType, EditorView, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view'
 import { BADGE_TYPES } from './constants';
 
 const REGEXP = /(`\[!!(.*?)\]`)/gm;
 
+interface BadgeDefinition {
+  key: string;    // what you type: [!!key:...]
+  label: string;  // default display text for shorthand [!!key]
+  icon: string;   // Lucide icon name
+  color: string;  // e.g. "144,144,144" or "var(--color-red-rgb)"; empty = default
+}
+
+interface BadgesSettings {
+  customBadges: BadgeDefinition[];
+}
+
+const DEFAULT_SETTINGS: BadgesSettings = {
+  customBadges: [],
+};
+
 export default class BadgesPlugin extends Plugin {
+  settings!: BadgesSettings;
   async onload() {
+    await this.loadSettings();
+    this.addSettingTab(new BadgesSettingTab(this.app, this));
     this.registerMarkdownPostProcessor(
 			buildPostProcessor()
 		);
     this.registerEditorExtension(viewPlugin)
+  }
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
   }
 }
 
@@ -231,4 +255,66 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
     return anchor;
   }
   return newEl;
+}
+
+class BadgesSettingTab extends PluginSettingTab {
+  plugin: BadgesPlugin;
+  constructor(app: App, plugin: BadgesPlugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display(): void {
+    const { containerEl } = this;
+    containerEl.empty();
+    new Setting(containerEl).setName('Custom badges').setHeading();
+    this.plugin.settings.customBadges.forEach((badge, index) => {
+      const row = new Setting(containerEl)
+        .addText((text) => text
+          .setPlaceholder('key')
+          .setValue(badge.key)
+          .onChange(async (value) => {
+            badge.key = value.trim().toLowerCase();
+            await this.plugin.saveSettings();
+          }))
+        .addText((text) => text
+          .setPlaceholder('Label')
+          .setValue(badge.label)
+          .onChange(async (value) => {
+            badge.label = value;
+            await this.plugin.saveSettings();
+          }))
+        .addText((text) => text
+          .setPlaceholder('icon (Lucide name)')
+          .setValue(badge.icon)
+          .onChange(async (value) => {
+            badge.icon = value.trim();
+            await this.plugin.saveSettings();
+          }))
+        .addText((text) => text
+          .setPlaceholder('color: R,G,B or var(...)')
+          .setValue(badge.color)
+          .onChange(async (value) => {
+            badge.color = value.trim();
+            await this.plugin.saveSettings();
+          }))
+        .addExtraButton((btn) => btn
+          .setIcon('trash')
+          .setTooltip('Delete badge')
+          .onClick(async () => {
+            this.plugin.settings.customBadges.splice(index, 1);
+            await this.plugin.saveSettings();
+            this.display();
+          }));
+      row.infoEl.remove();
+    });
+    new Setting(containerEl)
+    .addButton((btn) => btn
+      .setButtonText('Add badge')
+      .setCta()
+      .onClick(async () => {
+        this.plugin.settings.customBadges.push({ key: '', label: '', icon: '', color: '' });
+        await this.plugin.saveSettings();
+        this.display();
+      }));
+  }
 }
