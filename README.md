@@ -22,6 +22,12 @@ A light-weight plugin for displaying inline "badges" in [Obsidian.md](https://gi
 4. Settings > Community plugins > reload **Installed plugins**
 5. enable plugin
 
+### Commands
+
+**Insert badge** — opens a fuzzy-search picker listing every badge type, built-in and user-defined, each with its icon. Choosing one inserts the badge at the cursor. If text is selected when you run the command, that text becomes the badge value; otherwise the cursor is placed inside an empty badge ready to type into.
+
+Bind it to a hotkey under Settings > Hotkeys, or run it from the command palette.
+
 ### Usage
 
 #### default syntax
