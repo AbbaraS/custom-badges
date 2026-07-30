@@ -301,8 +301,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
     newEl.appendChild(titleEl);
   }
   // Apply a custom colour from settings, if one is defined for this key.
-  // Set as an inline custom property rather than an injected stylesheet, which
-  // Obsidian's plugin guidelines disallow.
+  // Set as an inline custom property 
   const customColor = customBadgeColors.get(badgeType.trim().toLowerCase());
   if (customColor) {
     newEl.addClass('inline-badge-custom-color');
@@ -456,7 +455,6 @@ class BadgePickerModal extends FuzzySuggestModal<[string, string, string]> {
   }
 
   getItems(): [string, string, string][] {
-    // mergedBadgeTypes, not BADGE_TYPES, so user-defined badges appear in the picker.
     return mergedBadgeTypes;
   }
 
