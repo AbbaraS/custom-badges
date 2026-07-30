@@ -29,11 +29,38 @@ function refreshBadgeTypes(customBadges: BadgeDefinition[]): void {
   mergedBadgeTypes = [...customTriples, ...BADGE_TYPES];
 }
 
+function buildCustomBadgeCSS(customBadges: BadgeDefinition[]): string {
+  return customBadges
+    .filter((b) => b.key.trim().length > 0 && b.color.trim().length > 0)
+    .map((b) => {
+      const key = b.key.trim().toLowerCase();
+      const color = b.color.trim();
+      return `.inline-badge[data-inline-badge="${key}"] {\n` +
+        `  --badge-color: ${color};\n` +
+        `  color: rgba(var(--badge-color), 1);\n` +
+        `  background-color: rgba(var(--badge-color), .123);\n` +
+        `}`;
+    })
+    .join('\n');
+}
+
+let styleEl: HTMLStyleElement | null = null;
+
+function applyCustomBadgeCSS(customBadges: BadgeDefinition[]): void {
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'badges-custom-styles';
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = buildCustomBadgeCSS(customBadges);
+}
+
 export default class BadgesPlugin extends Plugin {
   settings!: BadgesSettings;
   async onload() {
     await this.loadSettings();
     refreshBadgeTypes(this.settings.customBadges);
+    applyCustomBadgeCSS(this.settings.customBadges);
     this.addSettingTab(new BadgesSettingTab(this.app, this));
     this.registerMarkdownPostProcessor(
 			buildPostProcessor()
@@ -46,6 +73,11 @@ export default class BadgesPlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     refreshBadgeTypes(this.settings.customBadges);
+    applyCustomBadgeCSS(this.settings.customBadges);
+  }
+  onunload() {
+	  styleEl?.remove();
+  	styleEl = null;
   }
 }
 
