@@ -20,10 +20,20 @@ const DEFAULT_SETTINGS: BadgesSettings = {
   customBadges: [],
 };
 
+let mergedBadgeTypes: [string, string, string][] = [...BADGE_TYPES];
+
+function refreshBadgeTypes(customBadges: BadgeDefinition[]): void {
+  const customTriples: [string, string, string][] = customBadges
+    .filter((b) => b.key.trim().length > 0)
+    .map((b) => [b.key.trim().toLowerCase(), b.label || b.key, b.icon || 'hash']);
+  mergedBadgeTypes = [...customTriples, ...BADGE_TYPES];
+}
+
 export default class BadgesPlugin extends Plugin {
   settings!: BadgesSettings;
   async onload() {
     await this.loadSettings();
+    refreshBadgeTypes(this.settings.customBadges);
     this.addSettingTab(new BadgesSettingTab(this.app, this));
     this.registerMarkdownPostProcessor(
 			buildPostProcessor()
@@ -35,6 +45,7 @@ export default class BadgesPlugin extends Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+    refreshBadgeTypes(this.settings.customBadges);
   }
 }
 
@@ -162,7 +173,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
   let badgeContent: string;
   // Support shorthand syntax for known types: [!!success] instead of [!!success:Success]
   if (parts.length < 2) {
-    const knownType = BADGE_TYPES.find((el) => el[0] === badgeType.toLowerCase());
+    const knownType = mergedBadgeTypes.find((el) => el[0] === badgeType.toLowerCase());
     if (knownType) {
       badgeContent = knownType[1];
     } else {
@@ -216,7 +227,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
     } else {
       iconEl.addClass("inline-badge-icon");
       attrType = badgeType.trim();
-      const knownType = BADGE_TYPES.find((el) => el[0] === badgeType.toLowerCase() && el[2].length > 0);
+      const knownType = mergedBadgeTypes.find((el) => el[0] === badgeType.toLowerCase() && el[2].length > 0);
       if (knownType) {
         setIcon(iconEl, knownType[2]);
       } else {
