@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, Plugin, MarkdownPostProcessor, setIcon, editorLivePreviewField } from 'obsidian'
+import { App, Editor, FuzzySuggestModal, FuzzyMatch, PluginSettingTab, Setting, Plugin, MarkdownPostProcessor, setIcon, editorLivePreviewField } from 'obsidian'
 import { RangeSetBuilder } from "@codemirror/state"
 import { ViewPlugin, WidgetType, EditorView, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view'
 import { BADGE_TYPES } from './constants';
@@ -84,6 +84,13 @@ export default class BadgesPlugin extends Plugin {
 			buildPostProcessor()
 		);
     this.registerEditorExtension(viewPlugin)
+    this.addCommand({
+      id: 'insert-badge',
+      name: 'Insert badge',
+      editorCallback: (editor: Editor) => {
+        new BadgePickerModal(this.app, editor).open();
+        }
+    });
   }
   async loadSettings() {
     const data = (await this.loadData()) as Partial<BadgesSettings> | null;
@@ -429,3 +436,48 @@ class BadgesSettingTab extends PluginSettingTab {
       }));
   }
 }
+
+// Modal for inserting badges 
+class BadgePickerModal extends FuzzySuggestModal<[string, string, string]> {
+  editor: Editor;
+  
+  renderSuggestion(match: FuzzyMatch<[string, string, string]>, el: HTMLElement): void {
+    el.addClass('badge-picker-suggestion');
+    const iconEl = el.createSpan({ cls: 'badge-picker-icon' });
+    setIcon(iconEl, match.item[2]);
+    const textEl = el.createSpan();
+    super.renderSuggestion(match, textEl);
+  }
+
+  constructor(app: App, editor: Editor) {
+    super(app);
+    this.editor = editor;
+    this.setPlaceholder('Choose a badge type…');
+  }
+
+  getItems(): [string, string, string][] {
+    // mergedBadgeTypes, not BADGE_TYPES, so user-defined badges appear in the picker.
+    return mergedBadgeTypes;
+  }
+
+  getItemText(item: [string, string, string]): string {
+    return item[0];
+  }
+
+  onChooseItem(item: [string, string, string]): void {
+    const key = item[0];
+    const selected = this.editor.getSelection().replace(/\s*\n\s*/g, ' ').trim(); // minor limitation: the parser treats ':' and '|' as delimiters, so a selection containing those will produce odd results. suggested-todo: strip or escape ':' and '|' 
+    const placeholder = ' '; // this could be changed to 'text' or item[1] as default value 
+    const value = selected || placeholder;
+    const start = this.editor.getCursor('from');
+    this.editor.replaceSelection(`\`[!!${key}:${value}]\``);
+    if (!selected) {
+      const chStart = start.ch + 5 + key.length;
+      this.editor.setSelection(
+        { line: start.line, ch: chStart + placeholder.length + 2 }, // this could be { line: start.line, ch: chStart } to select the placeholder text when inserting a badge instead of placing the cursor after it. 
+        { line: start.line, ch: chStart + placeholder.length + 2 }
+      );
+    }
+  }
+}
+
