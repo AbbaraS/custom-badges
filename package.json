@@ -1,7 +1,7 @@
 {
-	"name": "badges",
-	"version": "1.1.16",
-	"description": "Badges for Obsidian (https://obsidian.md)",
+	"name": "custom-badges",
+	"version": "1.0.0",
+	"description": "Custom Badges for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -12,7 +12,7 @@
 		"release:major": "node release.mjs major"
 	},
 	"keywords": [],
-	"author": "",
+	"author": "AbbaraS",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
