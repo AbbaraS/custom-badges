@@ -1,33 +1,26 @@
-## Badges
+## Custom Badges
 
 ### Introduction
 
-A light-weight plugin for displaying inline "badges" in [Obsidian.md](https://github.com/obsidianmd).
+A light-weight plugin for displaying inline "badges" in [Obsidian.md](https://github.com/obsidianmd), with support for user-defined badge types, icons and colors.
+
+> Forked from [gapmiss/badges](https://github.com/gapmiss/badges) (MIT). Custom Badges is an independent plugin and is not affiliated with the original.
 
 ### Installation
 
-[Install from community.obsidian.md](https://community.obsidian.md/plugins/badges)
+**Via BRAT (early access):**
 
-From Obsidian's settings or preferences:
+1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin
+2. BRAT settings > Add Beta Plugin
+3. Enter `AbbaraS/custom-badges`
 
-1. Community Plugins > Browse
-2. Search for "Badges"
+**Manually:**
 
-Manually:
-
-1. download the latest [release](https://github.com/gapmiss/badges/releases/latest) archive
-2. uncompress the downloaded archive
-3. move the `badges` folder to `/path/to/vault/.obsidian/plugins/` 
-4.  Settings > Community plugins > reload **Installed plugins**
-5.  enable plugin
-
-or:
-
-1.  download `main.js`, `manifest.json` & `styles.css` from the latest [release](https://github.com/gapmiss/badges/releases/latest)
-2.  create a new folder `/path/to/vault/.obsidian/plugins/badges`
-3.  move all 3 files to `/path/to/vault/.obsidian/plugins/badges`
-4.  Settings > Community plugins > reload **Installed plugins**
-5.  enable plugin
+1. download `main.js`, `manifest.json` & `styles.css` from the latest [release](https://github.com/AbbaraS/custom-badges/releases/latest)
+2. create a new folder `/path/to/vault/.obsidian/plugins/custom-badges`
+3. move all 3 files into that folder
+4. Settings > Community plugins > reload **Installed plugins**
+5. enable plugin
 
 ### Usage
 
@@ -50,7 +43,7 @@ For built-in badge types, you can omit the value and colon:
 `[!!KEY]`
 ```
 
-For example, `[!!success]` displays as "Success" with a checkmark icon. This works for all types defined in [constants.ts](https://github.com/gapmiss/badges/blob/master/src/constants.ts).
+For example, `[!!success]` displays as "Success" with a checkmark icon. This works for all types defined in [constants.ts](https://github.com/AbbaraS/custom-badges/blob/master/src/constants.ts).
 
 > [!TIP]
 > In addition to the built-in badge types (note, info, success, etc.), you can use any [Lucide icon](https://lucide.dev/icons/) name as the `KEY`. For example: `[!!rocket:launched]` or `[!!heart:favorite]`.
@@ -308,7 +301,7 @@ View and copy example dataview queries: [badges-dataview](assets/badges-dataview
 
 ```bash
 cd /path/to/vault/.obsidian/plugins
-git clone https://github.com/gapmiss/badges.git
+git clone https://github.com/AbbaraS/custom-badges.git
 cd badges
 ```
 
