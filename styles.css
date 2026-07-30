@@ -426,3 +426,58 @@ body {
 .badge-link:hover .inline-badge {
 	filter: brightness(1.1);
 }
+
+/* Custom colours from plugin settings. --badge-color is set inline on the
+   element; this rule must stay last in the file so it wins the equal-specificity
+   tie against the built-in [data-inline-badge="…"] rules above. */
+.inline-badge.inline-badge-custom-color {
+	color: rgba(var(--badge-color), 1);
+	background-color: rgba(var(--badge-color), .123);
+}
+
+/* Let the whole row reflow instead of overflowing in narrow windows. */
+.badge-setting-row {
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+}
+
+.badge-setting-row .setting-item-info {
+	flex: 0 0 auto;
+	margin-inline-end: var(--size-4-4);
+	margin-bottom: 0;
+}
+
+.badge-setting-row .setting-item-control {
+	flex: 1 1 auto;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	gap: var(--size-2-2);
+}
+
+/* Grow to share the available width, shrink to 6em, then wrap to a new line. */
+.badge-setting-row input[type="text"] {
+	flex: 1 1 7em;
+	min-width: 6em;
+	width: auto;
+}
+
+.badge-color-swatch {
+	width: 1.6em;
+	height: 1.6em;
+	flex: 0 0 auto;
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	background-color: rgba(var(--swatch-color), 1);
+}
+
+/* No parseable colour entered: show a muted diagonal instead of a fill. */
+.badge-color-swatch.is-empty {
+	background-color: transparent;
+	background-image: linear-gradient(
+		to top right,
+		transparent 45%,
+		var(--background-modifier-border) 45%,
+		var(--background-modifier-border) 55%,
+		transparent 55%
+	);
+}
