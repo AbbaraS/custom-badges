@@ -480,6 +480,7 @@ body {
 		var(--background-modifier-border) 55%,
 		transparent 55%
 	);
+}
 
 .badge-picker-suggestion {
   display: flex;
