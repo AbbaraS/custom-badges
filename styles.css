@@ -13,7 +13,7 @@ body {
 	border-radius: var(--inline-badge-border-radius);
 	font-weight: 600;
 	border: var(--inline-badge-border);
-	cursor: default;
+	cursor: auto;
 	/* Badge colour as "r, g, b" or var(--…-rgb). Set per badge from the plugin
 	   settings; badges without a colour use the normal text colour. */
 	--badge-color: var(--mono-rgb-100);
@@ -154,3 +154,11 @@ body {
 	color: var(--text-error);
 	margin-top: var(--size-2-1);
 }
+
+.badge-setting-syntax {
+	user-select: text;
+	-webkit-user-select: text;   /* Obsidian runs on Electron (Chromium) */
+	cursor: text;
+}
+
+

@@ -16,6 +16,13 @@ const DEFAULT_SETTINGS: Omit<BadgesSettings, 'badges'> = {
 	customPlaceholder: 'text',
 };
 
+const PLACEHOLDER_OPTIONS: Record<PlaceholderMode, string> = {
+	selection: 'Empty',
+	label: 'Label',
+	custom: 'Custom text',
+};
+
+
 function copyDefaultBadges(): BadgeDefinition[] {
 	return DEFAULT_BADGES.map((b) => ({ ...b }));
 }
@@ -106,6 +113,19 @@ function capitalise(text: string): string {
 	return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+// Badge placeholder logic. 
+function resolvePlaceholder(badge: BadgeDefinition, settings: BadgesSettings): string {
+	const useDefault = badge.placeholder === 'default';
+	const mode = useDefault ? settings.placeholderMode : badge.placeholder;
+	let text = '';
+	if (mode === 'label') {
+		text = badge.label.trim() || badge.key;
+	} else if (mode === 'custom') {
+		text = useDefault ? settings.customPlaceholder : badge.placeholderText;
+	}
+	return text.replace(/\s*\n\s*/g, '').trim();
+}
+
 export default class BadgesPlugin extends Plugin {
 	settings!: BadgesSettings;
 	async onload() {
@@ -154,7 +174,7 @@ export default class BadgesPlugin extends Plugin {
 	onunload() {
 	}
 }
-
+// || CHECK 
 function buildPostProcessor(): MarkdownPostProcessor {
 	return (el) => {
 		el.findAll("code").forEach(
@@ -381,16 +401,15 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
 	return newEl;
 }
 
-const PLACEHOLDER_OPTIONS: Record<PlaceholderMode, string> = {
-	selection: 'Empty',
-	label: 'Label',
-	custom: 'Custom text',
-};
 
+
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
+// #region BadgesSettingTab 
 class BadgesSettingTab extends PluginSettingTab {
 	plugin: BadgesPlugin;
-	// Key input of each badge row, by index, so "Add badge" can focus an
-	// existing unfinished row instead of adding another.
+	// Key input of each badge row, by index, so "Add badge" focuses on unfinished row 
 	private keyInputs: HTMLInputElement[] = [];
 	constructor(app: App, plugin: BadgesPlugin) {
 		super(app, plugin);
@@ -415,7 +434,7 @@ class BadgesSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName('Inserting badges').setHeading();
 		new Setting(containerEl)
 			.setName('Default placeholder')
-			.setDesc('Text used when inserting a badge without text selection. Otherwise, selected text is always used.')
+			.setDesc('Placeholder with no text selection. Selected text is always used.')
 			.addDropdown((dd) => dd
 				.addOptions(PLACEHOLDER_OPTIONS)
 				.setValue(settings.placeholderMode)
@@ -427,7 +446,7 @@ class BadgesSettingTab extends PluginSettingTab {
 		if (settings.placeholderMode === 'custom') {
 			new Setting(containerEl)
 				.setName('Default custom text')
-				.setDesc('Avoid ":" and "|" - used as separators in badge syntax.')
+				.setDesc('Avoid ":" and "|" - used as separators in syntax.')
 				.addText((text) => text
 					.setPlaceholder('Text')
 					.setValue(settings.customPlaceholder)
@@ -440,12 +459,18 @@ class BadgesSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Badges')
 			.setDesc(createFragment((frag) => {
-				frag.appendText('Syntax: `[!!key:text]`, or `[!!key]` to show its label. Find icon names from ');
-				frag.createEl('a', { text: 'Lucide icons', href: LUCIDE_ICONS_URL });
-				frag.appendText('. Icons added to Lucide very recently may not be in your version of Obsidian yet.');
+				frag.appendText('Syntax: `[!!key:text]` or `[!!key]` to show its label. Find icon names from ');
+				frag.createEl('a', { text: 'Lucide icons.', href: LUCIDE_ICONS_URL });
+				// frag.appendText('. Icons added to Lucide very recently may not be in your version of Obsidian yet.');
+				frag.createEl('br');
+				frag.appendText('Badge fields: ');
+				frag.createEl('br');
+				frag.appendText('Key -|- Label -|- Icon name -|- Colour ');
+				
 			}))
 			.setHeading();
-
+		
+		// >> FOR EACH BADGE IN SETTINGS: 
 		settings.badges.forEach((badge, index) => {
 			const row = new Setting(containerEl);
 			row.settingEl.addClass('badge-setting-row');
@@ -456,7 +481,15 @@ class BadgesSettingTab extends PluginSettingTab {
 					row.nameEl.setText('(No key)');
 					return;
 				}
-				row.nameEl.appendChild(buildBadge(`[!!${key}:${badge.label.trim() || key}]`));
+				const placeholder = resolvePlaceholder(badge, settings);
+				const inner = `[!!${key}:${placeholder || ''}]`;   // what the badge is built from 
+				const syntax = ` Syntax: \`${inner}\` `;                       // what you type in a note, with backticks
+				
+				
+				const previewEl = row.nameEl.createDiv({ cls: 'badge-setting-preview' });
+				previewEl.appendChild(buildBadge(inner));
+				const codeEl = previewEl.createEl('code', { cls: 'badge-setting-syntax', text: syntax });
+				
 				const firstIndex = settings.badges.findIndex((b) => b.key === key);
 				if (firstIndex !== index) {
 					row.nameEl.createDiv({ cls: 'badge-setting-warning', text: 'Duplicate key, ignored' });
@@ -504,7 +537,7 @@ class BadgesSettingTab extends PluginSettingTab {
 						badge.icon = value.trim();
 						await commit();
 					});
-				label(text.inputEl, 'Lucide icon name from lucide.dev/icons, e.g. smile-plus');
+				label(text.inputEl, 'Lucide icon name from lucide.dev/icons.');
 			})
 			// Colour accepts hex, "r,g,b", rgb(...) or a var(--…) reference. The
 			// swatch beside it previews whatever is currently parseable.
@@ -599,6 +632,14 @@ class BadgesSettingTab extends PluginSettingTab {
 	}
 }
 
+// #endregion BadgesSettingTab
+
+
+
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// #region MODAL: badge picker 
 // Modal for inserting badges
 class BadgePickerModal extends FuzzySuggestModal<BadgeDefinition> {
 	editor: Editor;
@@ -631,16 +672,20 @@ class BadgePickerModal extends FuzzySuggestModal<BadgeDefinition> {
 	// or the global default. Newlines are flattened because a badge must stay on
 	// one line.
 	getPlaceholder(item: BadgeDefinition): string {
-		const useDefault = item.placeholder === 'default';
-		const mode = useDefault ? this.settings.placeholderMode : item.placeholder;
-		let text = '';
-		if (mode === 'label') {
-			text = item.label.trim() || item.key;
-		} else if (mode === 'custom') {
-			text = useDefault ? this.settings.customPlaceholder : item.placeholderText;
-		}
-		return text.replace(/\s*\n\s*/g, ' ').trim();
+		return resolvePlaceholder(item, this.settings);
 	}
+
+	// getPlaceholder(item: BadgeDefinition): string {
+		// const useDefault = item.placeholder === 'default';
+		// const mode = useDefault ? this.settings.placeholderMode : item.placeholder;
+		// let text = '';
+		// if (mode === 'label') {
+			// text = item.label.trim() || item.key;
+		// } else if (mode === 'custom') {
+			// text = useDefault ? this.settings.customPlaceholder : item.placeholderText;
+		// }
+		// return text.replace(/\s*\n\s*/g, ' ').trim();
+	// }
 
 	onChooseItem(item: BadgeDefinition): void {
 		const key = item.key;
@@ -665,3 +710,8 @@ class BadgePickerModal extends FuzzySuggestModal<BadgeDefinition> {
 		}
 	}
 }
+
+// #endregion MODAL: badge picker
+
+
+
