@@ -11,7 +11,7 @@ body {
 	padding: 0;
 	vertical-align: middle;
 	border-radius: var(--inline-badge-border-radius);
-	font-weight: 500;
+	font-weight: 600;
 	border: var(--inline-badge-border);
 	cursor: default;
 	/* Badge colour as "r, g, b" or var(--…-rgb). Set per badge from the plugin
