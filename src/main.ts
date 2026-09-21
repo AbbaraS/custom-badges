@@ -1,38 +1,63 @@
 import { App, Editor, FuzzySuggestModal, FuzzyMatch, PluginSettingTab, Setting, Plugin, MarkdownPostProcessor, setIcon, editorLivePreviewField } from 'obsidian'
 import { RangeSetBuilder } from "@codemirror/state"
 import { ViewPlugin, WidgetType, EditorView, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view'
-import { BADGE_TYPES } from './constants';
+import { BadgeDefinition, DEFAULT_BADGES, LUCIDE_ICONS_URL, PlaceholderMode } from './constants';
 
 const REGEXP = /(`\[!!(.*?)\]`)/gm;
 
-interface BadgeDefinition {
-  key: string;    // what you type: [!!key:...]
-  label: string;  // default display text for shorthand [!!key]
-  icon: string;   // Lucide icon name
-  color: string;  // e.g. "144,144,144" or "var(--color-red-rgb)"; empty = default
-}
-
 interface BadgesSettings {
-  customBadges: BadgeDefinition[];
+  badges: BadgeDefinition[];
+  placeholderMode: PlaceholderMode;
+  customPlaceholder: string;
 }
 
-const DEFAULT_SETTINGS: BadgesSettings = {
-  customBadges: [],
+const DEFAULT_SETTINGS: Omit<BadgesSettings, 'badges'> = {
+  placeholderMode: 'selection',
+  customPlaceholder: 'text',
 };
 
-let mergedBadgeTypes: [string, string, string][] = [...BADGE_TYPES];
+function copyDefaultBadges(): BadgeDefinition[] {
+  return DEFAULT_BADGES.map((b) => ({ ...b }));
+}
 
-function refreshBadgeTypes(customBadges: BadgeDefinition[]): void {
-  const customTriples: [string, string, string][] = customBadges
-    .filter((b) => b.key.trim().length > 0)
-    .map((b) => [b.key.trim().toLowerCase(), b.label || b.key, b.icon || 'hash']);
-  mergedBadgeTypes = [...customTriples, ...BADGE_TYPES];
+// Fills in fields added in later versions so older saved badges stay valid.
+function normaliseBadge(raw: Partial<BadgeDefinition>): BadgeDefinition {
+  return {
+    key: (raw.key ?? '').trim().toLowerCase(),
+    label: raw.label ?? '',
+    icon: raw.icon ?? '',
+    color: raw.color ?? '',
+    placeholder: raw.placeholder ?? 'default',
+    placeholderText: raw.placeholderText ?? '',
+  };
+}
 
-  customBadgeColors = new Map<string, string>();
-  for (const b of customBadges) {
+// key -> badge, rebuilt whenever settings change. Used by the renderer, which
+// runs outside the plugin instance. If two badges share a key, the first wins.
+let badgeIndex = new Map<string, BadgeDefinition>();
+// key -> normalised colour for badges that have a usable colour set.
+let badgeColors = new Map<string, string>();
+
+function refreshBadgeTypes(badges: BadgeDefinition[]): void {
+  badgeIndex = new Map();
+  badgeColors = new Map();
+  for (const b of badges) {
     const key = b.key.trim().toLowerCase();
+    if (!key || badgeIndex.has(key)) continue;
+    badgeIndex.set(key, b);
     const color = cssColorValue(b.color);
-    if (key && color) customBadgeColors.set(key, color);
+    if (color) badgeColors.set(key, color);
+  }
+}
+
+// Sets a Lucide icon, accepting names with or without the "lucide-" prefix so
+// both current names (from lucide.dev) and Obsidian's legacy ids work.
+function setBadgeIcon(el: HTMLElement, name: string): void {
+  const icon = name.trim();
+  if (!icon) return;
+  setIcon(el, icon);
+  if (!el.querySelector('svg') && !icon.startsWith('lucide-')) {
+    setIcon(el, `lucide-${icon}`);
   }
 }
 
@@ -71,14 +96,15 @@ function cssColorValue(raw: string): string | null {
   return rgb ? `${rgb.r}, ${rgb.g}, ${rgb.b}` : null;
 }
 
-// badge key -> normalised colour, rebuilt whenever settings change.
-let customBadgeColors = new Map<string, string>();
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 export default class BadgesPlugin extends Plugin {
   settings!: BadgesSettings;
   async onload() {
     await this.loadSettings();
-    refreshBadgeTypes(this.settings.customBadges);
+    refreshBadgeTypes(this.settings.badges);
     this.addSettingTab(new BadgesSettingTab(this.app, this));
     this.registerMarkdownPostProcessor(
 			buildPostProcessor()
@@ -88,33 +114,51 @@ export default class BadgesPlugin extends Plugin {
       id: 'insert-badge',
       name: 'Insert badge',
       editorCallback: (editor: Editor) => {
-        new BadgePickerModal(this.app, editor).open();
+        new BadgePickerModal(this.app, editor, this.settings).open();
         }
     });
   }
   async loadSettings() {
-    const data = (await this.loadData()) as Partial<BadgesSettings> | null;
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
+    const data = ((await this.loadData()) ?? {}) as Partial<BadgesSettings> & { customBadges?: Partial<BadgeDefinition>[] };
+    const { customBadges: legacyBadges, ...rest } = data;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, rest) as BadgesSettings;
+
+    if (Array.isArray(data.badges)) {
+      this.settings.badges = data.badges.map(normaliseBadge);
+      return;
+    }
+    // First run, or upgrading from 1.1.x (which stored only user badges in
+    // `customBadges`): start from the defaults and merge the user's badges in.
+    // A user badge with the same key as a default replaces it, as it did before.
+    const badges = copyDefaultBadges();
+    for (const raw of legacyBadges ?? []) {
+      const badge = normaliseBadge(raw);
+      const i = badge.key ? badges.findIndex((b) => b.key === badge.key) : -1;
+      if (i >= 0) badges[i] = badge;
+      else badges.push(badge);
+    }
+    this.settings.badges = badges;
+    await this.saveData(this.settings);
   }
   async saveSettings() {
     await this.saveData(this.settings);
-    refreshBadgeTypes(this.settings.customBadges);
+    refreshBadgeTypes(this.settings.badges);
   }
   onunload() {
   }
 }
 
 function buildPostProcessor(): MarkdownPostProcessor {
-	return (el) => {
+  return (el) => {
     el.findAll("code").forEach(
-			(code) => {
-				const text = code.innerText.trim();
-				if (text.startsWith('[!!') && text.endsWith(']')) {
+      (code) => {
+        const text = code.innerText.trim();
+        if (text.startsWith('[!!') && text.endsWith(']')) {
           code.replaceWith(buildBadge(text));
-				}
-			}
-		)
-	}
+        }
+      }
+    )
+  }
 }
 
 class BadgeWidget extends WidgetType {
@@ -122,7 +166,7 @@ class BadgeWidget extends WidgetType {
 
   constructor(badge: string[]) {
     super()
-    this.text = badge[0].substring(1).substring(badge[0].length-2,0);
+    this.text = badge[0].substring(1).substring(badge[0].length - 2, 0);
   }
 
   eq(other: BadgeWidget): boolean {
@@ -172,7 +216,7 @@ const viewPlugin = ViewPlugin.fromClass(class {
         let add = true
         const from = match.index != undefined ? match.index + line.from : -1
         const to = from + match[0].length
-        if ((to-from) === 6) {
+        if ((to - from) === 6) {
           add = false
         }
         currentSelections.forEach((r) => {
@@ -204,7 +248,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
   let attrType = "";
   const part = text.substring(2);
   // Support escaped pipes (\|) for use inside Markdown tables
-  let content = part.substring(part.length-1,1).trim().replace(/\\\|/g, '|');
+  let content = part.substring(part.length - 1, 1).trim().replace(/\\\|/g, '|');
   if (!content.length) {
     newEl.setText("Badges syntax error");
     return newEl;
@@ -226,11 +270,14 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
   const parts = content.split(':');
   const badgeType = parts[0].trim();
   let badgeContent: string;
-  // Support shorthand syntax for known types: [!!success] instead of [!!success:Success]
+  // Shorthand syntax: [!!success] instead of [!!success:Success]. Keys with no
+  // badge defined in settings fall back to the capitalised key, e.g. [!!bug] -> "Bug".
   if (parts.length < 2) {
-    const knownType = mergedBadgeTypes.find((el) => el[0] === badgeType.toLowerCase());
+    const knownType = badgeIndex.get(badgeType.toLowerCase());
     if (knownType) {
-      badgeContent = knownType[1];
+      badgeContent = knownType.label.trim() || knownType.key;
+    } else if (badgeType && !badgeType.includes('|')) {
+      badgeContent = capitalise(badgeType);
     } else {
       newEl.setText("❌ Badges syntax error");
       newEl.setAttr("style", "color:var(--text-error)")
@@ -244,7 +291,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
   if (extras.length == 3) {
     iconEl.addClass("inline-badge-icon");
     attrType = 'customized';
-    setIcon(iconEl, extras[1]);
+    setBadgeIcon(iconEl, extras[1]);
     iconEl.setAttr("aria-label", extras[2]);
     const details = parts[1].split("|");
     const title = details[0].trim();
@@ -256,7 +303,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
     if (details[1]) {
       color = details[1].trim();
     }
-    newEl.setAttr("style", "--customize-badge-color: "+color+";");
+    newEl.setAttr("style", "--customize-badge-color: " + color + ";");
     newEl.appendChild(iconEl);
     if (textEl.getText() != "") {
       newEl.appendChild(textEl);
@@ -282,12 +329,9 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
     } else {
       iconEl.addClass("inline-badge-icon");
       attrType = badgeType.trim();
-      const knownType = mergedBadgeTypes.find((el) => el[0] === badgeType.toLowerCase() && el[2].length > 0);
-      if (knownType) {
-        setIcon(iconEl, knownType[2]);
-      } else {
-        setIcon(iconEl, badgeType.trim());
-      }
+      // Keys with no badge in settings are treated as a Lucide icon name.
+      const knownType = badgeIndex.get(badgeType.trim().toLowerCase());
+      setBadgeIcon(iconEl, knownType?.icon.trim() || badgeType.trim());
       iconEl.setAttr("aria-label", badgeType.trim());
     }
     titleEl.addClass("inline-badge-title-inner");
@@ -300,9 +344,9 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
     }
     newEl.appendChild(titleEl);
   }
-  // Apply a custom colour from settings, if one is defined for this key.
-  // Set as an inline custom property 
-  const customColor = customBadgeColors.get(badgeType.trim().toLowerCase());
+  // Apply the colour from settings, if one is defined for this key.
+  // Set as an inline custom property that styles.css reads.
+  const customColor = badgeColors.get(badgeType.trim().toLowerCase());
   if (customColor) {
     newEl.addClass('inline-badge-custom-color');
     newEl.style.setProperty('--badge-color', customColor);
@@ -330,6 +374,12 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
   return newEl;
 }
 
+const PLACEHOLDER_OPTIONS: Record<PlaceholderMode, string> = {
+  selection: 'Empty',
+  label: 'Label',
+  custom: 'Custom text',
+};
+
 class BadgesSettingTab extends PluginSettingTab {
   plugin: BadgesPlugin;
   constructor(app: App, plugin: BadgesPlugin) {
@@ -339,21 +389,60 @@ class BadgesSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName('Custom types').setHeading();
-    this.plugin.settings.customBadges.forEach((badge, index) => {
+    const settings = this.plugin.settings;
+
+    new Setting(containerEl).setName('Inserting badges').setHeading();
+    new Setting(containerEl)
+      .setName('Default placeholder')
+      .setDesc('Text used when you insert a badge with nothing selected. Selected text is always used when there is some. Each badge below can override this.')
+      .addDropdown((dd) => dd
+        .addOptions(PLACEHOLDER_OPTIONS)
+        .setValue(settings.placeholderMode)
+        .onChange(async (value) => {
+          settings.placeholderMode = value as PlaceholderMode;
+          await this.plugin.saveSettings();
+          this.display(); // show/hide the custom text field
+        }));
+    if (settings.placeholderMode === 'custom') {
+      new Setting(containerEl)
+        .setName('Default custom text')
+        .setDesc('Avoid ":" and "|", which the badge syntax uses as separators.')
+        .addText((text) => text
+          .setPlaceholder('Text')
+          .setValue(settings.customPlaceholder)
+          .onChange(async (value) => {
+            settings.customPlaceholder = value;
+            await this.plugin.saveSettings();
+          }));
+    }
+
+    new Setting(containerEl)
+      .setName('Badges')
+      .setDesc(createFragment((frag) => {
+        frag.appendText('Type a badge as `[!!key:text]`, or `[!!key]` to show its label. Icon names come from ');
+        frag.createEl('a', { text: 'Lucide icons', href: LUCIDE_ICONS_URL });
+        frag.appendText(' — copy the name shown on an icon\'s page, e.g. "smile-plus". Icons added to Lucide very recently may not be in your version of Obsidian yet.');
+      }))
+      .setHeading();
+
+    settings.badges.forEach((badge, index) => {
       const row = new Setting(containerEl);
       row.settingEl.addClass('badge-setting-row');
       const renderPreview = () => {
         row.nameEl.empty();
         const key = badge.key.trim().toLowerCase();
         if (!key) {
-          row.nameEl.setText('(No key)'); 
+          row.nameEl.setText('(No key)');
           return;
         }
         row.nameEl.appendChild(buildBadge(`[!!${key}:${badge.label.trim() || key}]`));
+        const firstIndex = settings.badges.findIndex((b) => b.key === key);
+        if (firstIndex !== index) {
+          row.nameEl.createDiv({ cls: 'badge-setting-warning', text: 'Duplicate key, ignored' });
+        }
       };
       renderPreview();
-      
+
       let renderSwatch = () => { /* replaced once the swatch exists */ };
 
       const commit = async () => {
@@ -363,7 +452,7 @@ class BadgesSettingTab extends PluginSettingTab {
       };
       // Placeholders vanish once a field is filled, so each input also carries a
       // persistent label for hover and screen readers.
-      const label = (el: HTMLInputElement, text: string) => {
+      const label = (el: HTMLElement, text: string) => {
         el.setAttribute('aria-label', text);
         el.setAttribute('title', text);
       };
@@ -393,7 +482,7 @@ class BadgesSettingTab extends PluginSettingTab {
             badge.icon = value.trim();
             await commit();
           });
-        label(text.inputEl, 'Lucide icon name, e.g. smile-plus');
+        label(text.inputEl, 'Lucide icon name from lucide.dev/icons, e.g. smile-plus');
       })
       // Colour accepts hex, "r,g,b", rgb(...) or a var(--…) reference. The
       // swatch beside it previews whatever is currently parseable.
@@ -413,69 +502,134 @@ class BadgesSettingTab extends PluginSettingTab {
         swatchEl.style.setProperty('--swatch-color', color ?? 'transparent');
       };
       renderSwatch();
+
+      // Per-badge placeholder. The custom text box only shows for "Custom text".
+      let placeholderTextEl: HTMLInputElement | null = null;
+      row.addDropdown((dd) => {
+        dd.addOption('default', `Default (${PLACEHOLDER_OPTIONS[settings.placeholderMode]})`)
+          .addOptions(PLACEHOLDER_OPTIONS)
+          .setValue(badge.placeholder)
+          .onChange(async (value) => {
+            badge.placeholder = value as BadgeDefinition['placeholder'];
+            placeholderTextEl?.toggle(badge.placeholder === 'custom');
+            await commit();
+          });
+        label(dd.selectEl, 'Placeholder when inserting this badge with nothing selected');
+      });
+      row.addText((text) => {
+        text.setPlaceholder('Placeholder text')
+          .setValue(badge.placeholderText)
+          .onChange(async (value) => {
+            badge.placeholderText = value;
+            await commit();
+          });
+        label(text.inputEl, 'Placeholder text for this badge');
+        placeholderTextEl = text.inputEl;
+        text.inputEl.toggle(badge.placeholder === 'custom');
+      });
+
       row.addExtraButton((btn) => {
         btn.setIcon('trash')
           .onClick(async () => {
-            this.plugin.settings.customBadges.splice(index, 1);
+            settings.badges.splice(index, 1);
             await this.plugin.saveSettings();
             this.display();
           });
         btn.extraSettingsEl.setAttribute('aria-label', 'Delete badge');
       });
     });
-    
+
+    const missingDefaults = DEFAULT_BADGES.filter(
+      (d) => !settings.badges.some((b) => b.key === d.key),
+    );
     new Setting(containerEl)
-    .addButton((btn) => btn
-      .setButtonText('Add badge')
-      .setCta()
-      .onClick(async () => {
-        this.plugin.settings.customBadges.push({ key: '', label: '', icon: '', color: '' });
-        await this.plugin.saveSettings();
-        this.display();
-      }));
+      .addButton((btn) => btn
+        .setButtonText('Add badge')
+        .setCta()
+        .onClick(async () => {
+          settings.badges.push(normaliseBadge({}));
+          await this.plugin.saveSettings();
+          this.display();
+        }))
+      .then((setting) => {
+        // Only offered when some default badges have been deleted.
+        if (!missingDefaults.length) return;
+        setting.addButton((btn) => {
+          btn.setButtonText('Restore default badges')
+            .onClick(async () => {
+              settings.badges.push(...missingDefaults.map((d) => ({ ...d })));
+              await this.plugin.saveSettings();
+              this.display();
+            });
+          btn.buttonEl.setAttribute('aria-label', `Adds back: ${missingDefaults.map((d) => d.key).join(', ')}`);
+        });
+      });
   }
 }
 
-// Modal for inserting badges 
-class BadgePickerModal extends FuzzySuggestModal<[string, string, string]> {
+// Modal for inserting badges
+class BadgePickerModal extends FuzzySuggestModal<BadgeDefinition> {
   editor: Editor;
-  
-  renderSuggestion(match: FuzzyMatch<[string, string, string]>, el: HTMLElement): void {
+  settings: BadgesSettings;
+
+  renderSuggestion(match: FuzzyMatch<BadgeDefinition>, el: HTMLElement): void {
     el.addClass('badge-picker-suggestion');
     const iconEl = el.createSpan({ cls: 'badge-picker-icon' });
-    setIcon(iconEl, match.item[2]);
+    setBadgeIcon(iconEl, match.item.icon || match.item.key);
     const textEl = el.createSpan();
     super.renderSuggestion(match, textEl);
   }
 
-  constructor(app: App, editor: Editor) {
+  constructor(app: App, editor: Editor, settings: BadgesSettings) {
     super(app);
     this.editor = editor;
+    this.settings = settings;
     this.setPlaceholder('Choose a badge type…');
   }
 
-  getItems(): [string, string, string][] {
-    return mergedBadgeTypes;
+  getItems(): BadgeDefinition[] {
+    return [...badgeIndex.values()];
   }
 
-  getItemText(item: [string, string, string]): string {
-    return item[0];
+  getItemText(item: BadgeDefinition): string {
+    return item.key;
   }
 
-  onChooseItem(item: [string, string, string]): void {
-    const key = item[0];
-    const selected = this.editor.getSelection().replace(/\s*\n\s*/g, ' ').trim(); // minor limitation: the parser treats ':' and '|' as delimiters, so a selection containing those will produce odd results. suggested-todo: strip or escape ':' and '|' 
-    const placeholder = ' '; // this could be changed to 'text' or item[1] as default value 
-    const value = selected || placeholder;
+  // Placeholder used when the editor has no selection: the badge's own choice,
+  // or the global default. Newlines are flattened because a badge must stay on
+  // one line.
+  getPlaceholder(item: BadgeDefinition): string {
+    const useDefault = item.placeholder === 'default';
+    const mode = useDefault ? this.settings.placeholderMode : item.placeholder;
+    let text = '';
+    if (mode === 'label') {
+      text = item.label.trim() || item.key;
+    } else if (mode === 'custom') {
+      text = useDefault ? this.settings.customPlaceholder : item.placeholderText;
+    }
+    return text.replace(/\s*\n\s*/g, ' ').trim();
+  }
+
+  onChooseItem(item: BadgeDefinition): void {
+    const key = item.key;
+    const selected = this.editor.getSelection().replace(/\s*\n\s*/g, ' ').trim(); // minor limitation: the parser treats ':' and '|' as delimiters, so a selection containing those will produce odd results. suggested-todo: strip or escape ':' and '|'
+    const placeholder = this.getPlaceholder(item);
+    // An empty value would be a syntax error, so fall back to a single space.
+    const value = selected || placeholder || ' ';
     const start = this.editor.getCursor('from');
     this.editor.replaceSelection(`\`[!!${key}:${value}]\``);
-    if (!selected) {
-      const chStart = start.ch + 5 + key.length;
+    if (selected) return;
+    const chStart = start.ch + 5 + key.length; // just after "`[!!key:"
+    if (placeholder) {
+      // Select the placeholder so typing replaces it.
       this.editor.setSelection(
-        { line: start.line, ch: chStart + placeholder.length + 2 }, // this could be { line: start.line, ch: chStart } to select the placeholder text when inserting a badge instead of placing the cursor after it. 
-        { line: start.line, ch: chStart + placeholder.length + 2 }
+        { line: start.line, ch: chStart },
+        { line: start.line, ch: chStart + placeholder.length }
       );
+    } else {
+      // Blank badge: put the cursor after it.
+      const after = chStart + value.length + 2;
+      this.editor.setCursor({ line: start.line, ch: after });
     }
   }
 }
-

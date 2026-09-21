@@ -24,9 +24,26 @@ A light-weight plugin for displaying inline "badges" in [Obsidian.md](https://gi
 
 ### Commands
 
-**Insert badge** — opens a fuzzy-search picker listing every badge type, built-in and user-defined, each with its icon. Choosing one inserts the badge at the cursor. If text is selected when you run the command, that text becomes the badge value; otherwise the cursor is placed inside an empty badge ready to type into.
+**Insert badge** — opens a fuzzy-search picker listing every badge defined in settings, each with its icon. Choosing one inserts the badge at the cursor. If text is selected when you run the command, that text becomes the badge value; otherwise the badge gets a placeholder (see [Settings](#settings)).
 
 Bind it to a hotkey under Settings > Hotkeys, or run it from the command palette.
+
+### Settings
+
+All badge types live in **Settings > Custom Badges**. New installs start with five defaults — `note`, `info`, `success`, `warning` and `error` — which you can edit or delete like any badge you add yourself. Deleted defaults can be brought back with **Restore default badges**.
+
+Each badge has:
+
+| field | details |
+| ----- | ------- |
+| Key | what you type: `[!!key:text]` |
+| Label | text shown for the shorthand `[!!key]` |
+| Icon | a [Lucide icon](https://lucide.dev/icons/) name, e.g. `smile-plus` |
+| Colour | `#hex`, `R,G,B`, `rgb(…)` or a CSS variable such as `var(--color-red-rgb)` |
+| Placeholder | what **Insert badge** puts in the badge when nothing is selected: empty, the badge's label, or custom text. "Default" uses the global **Default placeholder** setting. |
+
+> [!NOTE]
+> Upgrading from 1.1.x: your existing custom badges are kept and added after the defaults. The old list of ~90 built-in types has been removed. Notes that use one of them still render, using the key as the icon name and label, but without the old colour. Add the key in settings to give it a colour again.
 
 ### Usage
 
@@ -43,16 +60,16 @@ Bind it to a hotkey under Settings > Hotkeys, or run it from the command palette
 
 #### shorthand syntax
 
-For built-in badge types, you can omit the value and colon:
+For badges defined in settings, you can omit the value and colon:
 
 ```markdown
 `[!!KEY]`
 ```
 
-For example, `[!!success]` displays as "Success" with a checkmark icon. This works for all types defined in [constants.ts](https://github.com/AbbaraS/custom-badges/blob/master/src/constants.ts).
+For example, `[!!success]` displays as "Success" with a checkmark icon. For a key that isn't in settings, the key itself is shown, e.g. `[!!rocket]` displays as "Rocket".
 
 > [!TIP]
-> In addition to the built-in badge types (note, info, success, etc.), you can use any [Lucide icon](https://lucide.dev/icons/) name as the `KEY`. For example: `[!!rocket:launched]` or `[!!heart:favorite]`.
+> In addition to the badges in settings, you can use any [Lucide icon](https://lucide.dev/icons/) name as the `KEY`. For example: `[!!rocket:launched]` or `[!!heart:favorite]`.
 
 > [!IMPORTANT]
 > the `VAL` cannot contain either the `|` pipe or the `:` colon symbols, as they are used as delimiters for the custom syntax. See [Usage in tables](#usage-in-tables) for using badges inside Markdown tables.
@@ -62,34 +79,11 @@ For example, `[!!success]` displays as "Success" with a checkmark icon. This wor
 ```markdown
 `[!!note:note]`
 `[!!info:info]`
-`[!!todo:todo]`
-...
-`[!!cite:cite]`
+`[!!success]`
+`[!!warning:check this]`
+`[!!error:failed]`
+`[!!rocket:launched]`
 ```
-
-###### results
-
-![](assets/Badges-demo-Obsidian-v1.3.7-20230709144540.png)
-
-![](assets/Badges-demo-Obsidian-v1.3.7-20230709144545.png)
-
-###### example
-
-```markdown
-`[!!emergency: emergency]`
-`[!!prohibit: prohibit]`
-`[!!stop:stop]`
-…
-`[!!reward: reward]`
-`[!!vault: vault]`
-```
-
-###### results
-
-![](assets/Badges-demo-Obsidian-v1.3.7-20230709170950.png)
-
-![](assets/Badges-demo-Obsidian-v1.3.7-20230709170943.png)
-
 
 #### Github
 
@@ -178,7 +172,7 @@ For example, `[!!success]` displays as "Success" with a checkmark icon. This wor
 > ```
 
 > [!IMPORTANT]
-> Custom syntax requires actual [Lucide icon](https://lucide.dev/icons/) names (e.g., `pen-tool`, `message-square`). The built-in aliases like `notice` or `success` only work with standard syntax. For example, use `[!!|pen-tool|notice:text|color]` not `[!!|notice|notice:text|color]`.
+> Custom syntax requires actual [Lucide icon](https://lucide.dev/icons/) names (e.g., `pen-tool`, `message-square`). Badge keys from settings like `note` or `success` only work with standard syntax. For example, use `[!!|pencil|note:text|color]` not `[!!|note|note:text|color]`.
 
 ###### example
 
