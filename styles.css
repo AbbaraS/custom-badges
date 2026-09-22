@@ -154,3 +154,10 @@ body {
 .badge-setting-syntax {
 	font-size: var(--font-ui-smaller);
 }
+
+/* Restore-defaults button on a default badge that hasn't been changed. */
+.badge-reset-disabled {
+	opacity: 0.35;
+	cursor: default;
+	pointer-events: none;
+}

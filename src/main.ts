@@ -27,6 +27,22 @@ function copyDefaultBadges(): BadgeDefinition[] {
 	return DEFAULT_BADGES.map((b) => ({ ...b }));
 }
 
+// A badge counts as a default one while its key matches a built-in badge.
+function findDefaultBadge(badge: BadgeDefinition): BadgeDefinition | undefined {
+	return DEFAULT_BADGES.find((d) => d.key === badge.key.trim().toLowerCase());
+}
+
+function matchesDefault(badge: BadgeDefinition, def: BadgeDefinition): boolean {
+	return (Object.keys(def) as (keyof BadgeDefinition)[]).every((k) => badge[k] === def[k]);
+}
+
+// Sort rank for the settings list: user-added badges first (in their own order),
+// then the defaults in their built-in order.
+function badgeSortRank(badge: BadgeDefinition): number {
+	const def = findDefaultBadge(badge);
+	return def ? 1 + DEFAULT_BADGES.indexOf(def) : 0;
+}
+
 // Fills in fields added in later versions so older saved badges stay valid.
 function normaliseBadge(raw: Partial<BadgeDefinition>): BadgeDefinition {
 	return {
@@ -444,6 +460,14 @@ class BadgesSettingTab extends PluginSettingTab {
 		this.keyInputs = [];
 		const settings = this.plugin.settings;
 
+		// User-added badges first, then defaults. Saved so the order used for
+		// duplicate keys (first one wins) matches what the list shows.
+		const sorted = [...settings.badges].sort((a, b) => badgeSortRank(a) - badgeSortRank(b));
+		if (sorted.some((b, i) => b !== settings.badges[i])) {
+			settings.badges = sorted;
+			void this.plugin.saveSettings();
+		}
+
 		new Setting(containerEl).setName('Inserting badges').setHeading();
 		new Setting(containerEl)
 			.setName('Default placeholder')
@@ -512,9 +536,12 @@ class BadgesSettingTab extends PluginSettingTab {
 			};
 			renderPreview();
 
+			// Greys out the restore-defaults button while nothing differs (set below for default badges).
+			let refreshResetButton = () => {};
 			const commit = async () => {
 				await this.plugin.saveSettings();
 				renderPreview();
+				refreshResetButton();
 			};
 			// Placeholders vanish once a field is filled, so each input also carries a
 			// persistent label for hover and screen readers.
@@ -606,6 +633,27 @@ class BadgesSettingTab extends PluginSettingTab {
 				text.inputEl.toggle(badge.placeholder === 'custom');
 			});
 
+			// Default badges only: put every field back to its built-in value.
+			const def = findDefaultBadge(badge);
+			if (def) {
+				row.addExtraButton((btn) => {
+					btn.setIcon('rotate-ccw')
+						.onClick(async () => {
+							if (matchesDefault(badge, def)) return;
+							Object.assign(badge, def);
+							await this.plugin.saveSettings();
+							this.display();
+						});
+					refreshResetButton = () => {
+						const unchanged = matchesDefault(badge, def);
+						btn.extraSettingsEl.setAttribute('aria-label',
+							unchanged ? 'Already using default settings' : 'Restore default settings');
+						btn.extraSettingsEl.toggleClass('badge-reset-disabled', unchanged);
+					};
+					refreshResetButton();
+				});
+			}
+
 			row.addExtraButton((btn) => {
 				btn.setIcon('trash')
 					.onClick(async () => {
@@ -637,7 +685,8 @@ class BadgesSettingTab extends PluginSettingTab {
 					settings.badges.push(normaliseBadge({}));
 					await this.plugin.saveSettings();
 					this.display();
-					this.keyInputs[settings.badges.length - 1]?.focus();
+					// The list is re-sorted, so find the new (blank) row rather than assuming it's last.
+					this.keyInputs[settings.badges.findIndex((b) => !b.key.trim())]?.focus();
 				}))
 			.then((setting) => {
 				// Only offered when some default badges have been deleted.
