@@ -1,4 +1,4 @@
-import { App, Editor, FuzzySuggestModal, FuzzyMatch, PluginSettingTab, Setting, Plugin, MarkdownPostProcessor, Notice, setIcon, editorLivePreviewField } from 'obsidian'
+import { App, ColorComponent, Editor, TextComponent, FuzzySuggestModal, FuzzyMatch, PluginSettingTab, Setting, Plugin, MarkdownPostProcessor, Notice, setIcon, editorLivePreviewField } from 'obsidian'
 import { RangeSetBuilder } from "@codemirror/state"
 import { ViewPlugin, WidgetType, EditorView, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view'
 import { BadgeDefinition, DEFAULT_BADGES, LUCIDE_ICONS_URL, PlaceholderMode } from './constants';
@@ -103,6 +103,16 @@ function cssColorValue(raw: string): string | null {
 	return rgb ? `${rgb.r}, ${rgb.g}, ${rgb.b}` : null;
 }
 
+// Resolves any accepted colour, including var(--…), to RGB for the colour picker.
+const toRgb = (value: string) => {
+	const v = value.trim();
+	if (v.startsWith('var(')) {
+		const name = v.slice(4, -1).trim();            // "--color-red-rgb"
+		return parseColorToRgb(getComputedStyle(activeDocument.body).getPropertyValue(name));
+	}
+	return parseColorToRgb(v);
+};
+
 // A badge row the user added but never filled in.
 function isBlankBadge(b: BadgeDefinition): boolean {
 	return !b.key.trim() && !b.label.trim() && !b.icon.trim() && !b.color.trim()
@@ -123,7 +133,7 @@ function resolvePlaceholder(badge: BadgeDefinition, settings: BadgesSettings): s
 	} else if (mode === 'custom') {
 		text = useDefault ? settings.customPlaceholder : badge.placeholderText;
 	}
-	return text.replace(/\s*\n\s*/g, '').trim();
+	return text.replace(/\s*\n\s*/g, ' ').trim();
 }
 
 export default class BadgesPlugin extends Plugin {
@@ -141,7 +151,7 @@ export default class BadgesPlugin extends Plugin {
 			name: 'Insert badge',
 			editorCallback: (editor: Editor) => {
 				new BadgePickerModal(this.app, editor, this.settings).open();
-				}
+			}
 		});
 	}
 	async loadSettings() {
@@ -174,7 +184,7 @@ export default class BadgesPlugin extends Plugin {
 	onunload() {
 	}
 }
-// || CHECK 
+
 function buildPostProcessor(): MarkdownPostProcessor {
 	return (el) => {
 		el.findAll("code").forEach(
@@ -456,6 +466,7 @@ class BadgesSettingTab extends PluginSettingTab {
 					}));
 		}
 
+		// ------- BADGES -----
 		new Setting(containerEl)
 			.setName('Badges')
 			.setDesc(createFragment((frag) => {
@@ -466,10 +477,10 @@ class BadgesSettingTab extends PluginSettingTab {
 				frag.appendText('Badge fields: ');
 				frag.createEl('br');
 				frag.appendText('Key -|- Label -|- Icon name -|- Colour ');
-				
+
 			}))
 			.setHeading();
-		
+
 		// >> FOR EACH BADGE IN SETTINGS: 
 		settings.badges.forEach((badge, index) => {
 			const row = new Setting(containerEl);
@@ -482,14 +493,15 @@ class BadgesSettingTab extends PluginSettingTab {
 					return;
 				}
 				const placeholder = resolvePlaceholder(badge, settings);
-				const inner = `[!!${key}:${placeholder || ''}]`;   // what the badge is built from 
-				const syntax = ` Syntax: \`${inner}\` `;                       // what you type in a note, with backticks
-				
-				
+				// Same text "Insert badge" types (an empty placeholder becomes a space).
+				const inner = `[!!${key}:${placeholder || ' '}]`;   // what the badge is built from
+				const syntax = `\`${inner}\``;                     // what you type in a note, with backticks
+
 				const previewEl = row.nameEl.createDiv({ cls: 'badge-setting-preview' });
 				previewEl.appendChild(buildBadge(inner));
-				const codeEl = previewEl.createEl('code', { cls: 'badge-setting-syntax', text: syntax });
-				
+				previewEl.createSpan({ cls: 'badge-setting-syntax-label', text: 'Syntax:' });
+				previewEl.createEl('code', { cls: 'badge-setting-syntax', text: syntax });
+
 				const firstIndex = settings.badges.findIndex((b) => b.key === key);
 				if (firstIndex !== index) {
 					row.nameEl.createDiv({ cls: 'badge-setting-warning', text: 'Duplicate key, ignored' });
@@ -497,12 +509,9 @@ class BadgesSettingTab extends PluginSettingTab {
 			};
 			renderPreview();
 
-			let renderSwatch = () => { /* replaced once the swatch exists */ };
-
 			const commit = async () => {
 				await this.plugin.saveSettings();
 				renderPreview();
-				renderSwatch();
 			};
 			// Placeholders vanish once a field is filled, so each input also carries a
 			// persistent label for hover and screen readers.
@@ -510,6 +519,9 @@ class BadgesSettingTab extends PluginSettingTab {
 				el.setAttribute('aria-label', text);
 				el.setAttribute('title', text);
 			};
+
+			let colorText: TextComponent | null = null;
+			let colorPicker: ColorComponent | null = null;
 
 			row.addText((text) => {
 				text.setPlaceholder('Key')
@@ -539,24 +551,32 @@ class BadgesSettingTab extends PluginSettingTab {
 					});
 				label(text.inputEl, 'Lucide icon name from lucide.dev/icons.');
 			})
-			// Colour accepts hex, "r,g,b", rgb(...) or a var(--…) reference. The
-			// swatch beside it previews whatever is currently parseable.
 			row.addText((text) => {
+				colorText = text;
 				text.setPlaceholder('Colour')
 					.setValue(badge.color)
 					.onChange(async (value) => {
 						badge.color = value.trim();
+						const rgb = toRgb(badge.color);
+						if (rgb) colorPicker?.setValueRgb(rgb);    // text → picker
 						await commit();
 					});
 				label(text.inputEl, 'Colour: #hex, R,G,B, rgb(…) or var(--…)');
 			})
-			const swatchEl = row.controlEl.createSpan({ cls: 'badge-color-swatch' });
-			renderSwatch = () => {
-				const color = cssColorValue(badge.color);
-				swatchEl.toggleClass('is-empty', color === null);
-				swatchEl.style.setProperty('--swatch-color', color ?? 'transparent');
-			};
-			renderSwatch();
+			// Colour picker, kept in sync with the text field above. The text field
+			// also accepts var(--…) theme colours, which the picker shows resolved.
+			row.addColorPicker((picker) => {
+				colorPicker = picker;
+				const rgb = toRgb(badge.color);
+				if (rgb) picker.setValueRgb(rgb);
+				picker.onChange(async (hex) => {
+					badge.color = hex;
+					colorText?.setValue(hex);                     // picker → text
+					await commit();
+				});
+			})
+
+
 
 			// Per-badge placeholder. The custom text box only shows for "Custom text".
 			let placeholderTextEl: HTMLInputElement | null = null;
@@ -676,15 +696,15 @@ class BadgePickerModal extends FuzzySuggestModal<BadgeDefinition> {
 	}
 
 	// getPlaceholder(item: BadgeDefinition): string {
-		// const useDefault = item.placeholder === 'default';
-		// const mode = useDefault ? this.settings.placeholderMode : item.placeholder;
-		// let text = '';
-		// if (mode === 'label') {
-			// text = item.label.trim() || item.key;
-		// } else if (mode === 'custom') {
-			// text = useDefault ? this.settings.customPlaceholder : item.placeholderText;
-		// }
-		// return text.replace(/\s*\n\s*/g, ' ').trim();
+	// const useDefault = item.placeholder === 'default';
+	// const mode = useDefault ? this.settings.placeholderMode : item.placeholder;
+	// let text = '';
+	// if (mode === 'label') {
+	// text = item.label.trim() || item.key;
+	// } else if (mode === 'custom') {
+	// text = useDefault ? this.settings.customPlaceholder : item.placeholderText;
+	// }
+	// return text.replace(/\s*\n\s*/g, ' ').trim();
 	// }
 
 	onChooseItem(item: BadgeDefinition): void {

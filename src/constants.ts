@@ -16,9 +16,9 @@ export const LUCIDE_ICONS_URL = 'https://lucide.dev/icons/';
 // Badges every new install starts with. They are copied into settings on first
 // load, after which users can edit or delete them like any other badge.
 export const DEFAULT_BADGES: readonly BadgeDefinition[] = [
-  { key: 'note',    label: 'Note',    icon: 'pencil',         color: 'var(--color-blue-rgb)',   placeholder: 'default', placeholderText: '' },
-  { key: 'info',    label: 'Info',    icon: 'info',           color: 'var(--color-blue-rgb)',   placeholder: 'default', placeholderText: '' },
-  { key: 'success', label: 'Success', icon: 'check',          color: 'var(--color-green-rgb)',  placeholder: 'default', placeholderText: '' },
-  { key: 'warning', label: 'Warning', icon: 'alert-triangle', color: 'var(--color-orange-rgb)', placeholder: 'default', placeholderText: '' },
-  { key: 'error',   label: 'Error',   icon: 'zap',            color: 'var(--color-red-rgb)',    placeholder: 'default', placeholderText: '' },
+  { key: 'note',    label: 'Note',    icon: 'pencil',         color: '#87b0f9',   placeholder: 'default', placeholderText: '' },
+  { key: 'info',    label: 'Info',    icon: 'info',           color: '#87b0f9',   placeholder: 'default', placeholderText: '' },
+  { key: 'success', label: 'Success', icon: 'check',          color: '#4caf50',  placeholder: 'default', placeholderText: '' },
+  { key: 'warning', label: 'Warning', icon: 'alert-triangle', color: '#ff9800', placeholder: 'default', placeholderText: '' },
+  { key: 'error',   label: 'Error',   icon: 'zap',            color: '#f44336',    placeholder: 'default', placeholderText: '' },
 ];
