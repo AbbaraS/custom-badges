@@ -123,17 +123,21 @@ function capitalise(text: string): string {
 	return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-// Badge placeholder logic. 
+// Badge placeholder logic. Which placeholder mode applies to a badge: its own choice, or the global default.
+function resolvePlaceholderMode(badge: BadgeDefinition, settings: BadgesSettings): PlaceholderMode {
+	return badge.placeholder === 'default' ? settings.placeholderMode : badge.placeholder;
+}
+
 function resolvePlaceholder(badge: BadgeDefinition, settings: BadgesSettings): string {
 	const useDefault = badge.placeholder === 'default';
-	const mode = useDefault ? settings.placeholderMode : badge.placeholder;
+	const mode = resolvePlaceholderMode(badge, settings);
 	let text = '';
 	if (mode === 'label') {
 		text = badge.label.trim() || badge.key;
 	} else if (mode === 'custom') {
 		text = useDefault ? settings.customPlaceholder : badge.placeholderText;
 	}
-	return text.replace(/\s*\n\s*/g, ' ').trim();
+	return text.replace(/\s*\n\s*/g, '').trim();
 }
 
 export default class BadgesPlugin extends Plugin {
@@ -163,9 +167,8 @@ export default class BadgesPlugin extends Plugin {
 			this.settings.badges = data.badges.map(normaliseBadge).filter((b) => !isBlankBadge(b));
 			return;
 		}
-		// First run, or upgrading from 1.1.x (which stored only user badges in
-		// `customBadges`): start from the defaults and merge the user's badges in.
-		// A user badge with the same key as a default replaces it, as it did before.
+		// First run: start from the defaults and merge the user's badges in.
+		// A user badge with the same key as a default replaces it.
 		const badges = copyDefaultBadges();
 		for (const raw of legacyBadges ?? []) {
 			const badge = normaliseBadge(raw);
@@ -415,7 +418,7 @@ function buildBadge(text: string): HTMLSpanElement | HTMLAnchorElement {
 
 
 
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // #region BadgesSettingTab 
 class BadgesSettingTab extends PluginSettingTab {
 	plugin: BadgesPlugin;
@@ -494,7 +497,7 @@ class BadgesSettingTab extends PluginSettingTab {
 				}
 				const placeholder = resolvePlaceholder(badge, settings);
 				// Same text "Insert badge" types (an empty placeholder becomes a space).
-				const inner = `[!!${key}:${placeholder || ' '}]`;   // what the badge is built from
+				const inner = `[!!${key}:${placeholder || ''}]`;   // what the badge is built from
 				const syntax = `\`${inner}\``;                     // what you type in a note, with backticks
 
 				const previewEl = row.nameEl.createDiv({ cls: 'badge-setting-preview' });
@@ -688,45 +691,49 @@ class BadgePickerModal extends FuzzySuggestModal<BadgeDefinition> {
 		return item.key;
 	}
 
-	// Placeholder used when the editor has no selection: the badge's own choice,
-	// or the global default. Newlines are flattened because a badge must stay on
-	// one line.
+	// Placeholder used when the editor has no selection. Newlines are flattened to stay on one line.
 	getPlaceholder(item: BadgeDefinition): string {
 		return resolvePlaceholder(item, this.settings);
 	}
 
-	// getPlaceholder(item: BadgeDefinition): string {
-	// const useDefault = item.placeholder === 'default';
-	// const mode = useDefault ? this.settings.placeholderMode : item.placeholder;
-	// let text = '';
-	// if (mode === 'label') {
-	// text = item.label.trim() || item.key;
-	// } else if (mode === 'custom') {
-	// text = useDefault ? this.settings.customPlaceholder : item.placeholderText;
-	// }
-	// return text.replace(/\s*\n\s*/g, ' ').trim();
-	// }
-
 	onChooseItem(item: BadgeDefinition): void {
 		const key = item.key;
-		const selected = this.editor.getSelection().replace(/\s*\n\s*/g, ' ').trim(); // minor limitation: the parser treats ':' and '|' as delimiters, so a selection containing those will produce odd results. suggested-todo: strip or escape ':' and '|'
+		const selected = this.editor.getSelection().replace(/\s*\n\s*/g, '').trim(); 
+		// minor limitation: the parser treats ':' and '|' as delimiters, so a selection 
+		// containing those will produce odd results. 
+		// suggested-todo: strip or escape ':' and '|'
 		const placeholder = this.getPlaceholder(item);
+		const mode = resolvePlaceholderMode(item, this.settings);
 		// An empty value would be a syntax error, so fall back to a single space.
-		const value = selected || placeholder || ' ';
+		const value = selected || placeholder || '';
 		const start = this.editor.getCursor('from');
-		this.editor.replaceSelection(`\`[!!${key}:${value}]\``);
-		if (selected) return;
+		const badgeText = `\`[!!${key}:${value}]\``;
+
+		if (selected) {
+			this.editor.replaceSelection(badgeText);
+			return;
+		}
+
 		const chStart = start.ch + 5 + key.length; // just after "`[!!key:"
-		if (placeholder) {
-			// Select the placeholder so typing replaces it.
+		if (mode === 'label') {
+			// Label: add a space after the badge and carry on typing after it.
+			this.editor.replaceSelection(badgeText + '');
+			this.editor.setCursor({ line: start.line, ch: start.ch + badgeText.length + 1 });
+		} else if (mode === 'custom' && placeholder) {
+			// Custom text: select it so typing replaces it.
+			this.editor.replaceSelection(badgeText);
 			this.editor.setSelection(
 				{ line: start.line, ch: chStart },
 				{ line: start.line, ch: chStart + placeholder.length }
 			);
 		} else {
-			// Blank badge: put the cursor after it.
-			const after = chStart + value.length + 2;
-			this.editor.setCursor({ line: start.line, ch: after });
+			// Empty (or blank custom text): cursor outside, right after the badge.
+			this.editor.replaceSelection(badgeText);
+			// this.editor.setSelection(
+			// 	{ line: start.line, ch: chStart },
+			// 	{ line: start.line, ch: chStart + 1 }
+			// );
+			this.editor.setCursor({ line: start.line, ch: chStart + 2 });
 		}
 	}
 }
