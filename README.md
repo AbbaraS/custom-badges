@@ -315,6 +315,18 @@ await badges?.setPluginBadges('your-plugin-id', [
 ]);
 ```
 
+Send only the fields your plugin owns: anything you leave out (text colour, font size, placeholder…) keeps what the user set in Custom Badges.
+
+To keep edits the user makes to your badges in Custom Badges settings, add this method to your plugin class. It's called after the user saves; update your own data, then sync again:
+
+```ts
+async onCustomBadgeEdited(badge: { key: string; label: string; icon: string; color: string }) {
+	// e.g. find what `badge.key` belongs to, copy label/icon/colour onto it, save and re-sync.
+}
+```
+
+The key of a plugin's badge can't be changed in Custom Badges, since renaming it would break badges in notes.
+
 Editing `settings.badges` directly and calling `saveSettings()` also works; set `source: 'your-plugin-id'` on each badge.
 
 ### Development

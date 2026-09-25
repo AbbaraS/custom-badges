@@ -1,6 +1,8 @@
 import { Modal, Notice, Setting } from 'obsidian';
 import type { BadgeDefinition } from '../../models/BadgeDefinition';
 import { normaliseBadge } from '../../models/normaliseBadge';
+import { ownerSavesEdits, sendEditToOwner } from '../../integrations/badgeOwners';
+import { pluginName } from '../../integrations/obsidianPlugins';
 import type { SettingsContext } from '../context';
 import { basicFields } from './basicFields';
 import { placeholderFields } from './placeholderFields';
@@ -28,8 +30,17 @@ export class BadgeEditorModal extends Modal {
 		const refresh = () => renderBadgePreview(previewEl, this.draft, settings);
 		refresh();
 
+		// Badges from another plugin: say where edits go.
+		const owner = this.draft.source ? pluginName(this.app, this.draft.source) : '';
+		if (owner) {
+			const note = ownerSavesEdits(this.app, this.draft.source)
+				? `Created by ${owner}. Label, icon and colour are saved back to ${owner} too.`
+				: `Created by ${owner}, which may overwrite these changes when it syncs.`;
+			contentEl.createDiv({ cls: 'badge-editor-owner-note', text: note });
+		}
+
 		const others = settings.badges.filter((b) => b !== this.badge);
-		basicFields(contentEl, this.draft, others, refresh);
+		basicFields(contentEl, this.draft, others, refresh, owner);
 		new Setting(contentEl).setName('Style').setHeading();
 		styleFields(contentEl, this.draft, refresh);
 		new Setting(contentEl).setName('Inserting').setHeading();
@@ -49,6 +60,8 @@ export class BadgeEditorModal extends Modal {
 		if (this.badge) Object.assign(this.badge, this.draft);
 		else this.ctx.plugin.settings.badges.push(this.draft);
 		this.close();
+		await this.ctx.plugin.saveSettings();
+		await sendEditToOwner(this.app, this.draft); // owner re-syncs before the list redraws
 		await this.ctx.saveAndRedraw();
 	}
 

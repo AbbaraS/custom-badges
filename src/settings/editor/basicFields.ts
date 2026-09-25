@@ -3,12 +3,15 @@ import type { BadgeDefinition } from '../../models/BadgeDefinition';
 import { LUCIDE_ICONS_URL } from '../../defaults/defaultBadges';
 
 // Key, label and icon. `others` are the other saved badges, for the duplicate-key warning.
+// `owner` = name of the plugin that created the badge; its key can't be changed here.
 export function basicFields(
-	el: HTMLElement, draft: BadgeDefinition, others: BadgeDefinition[], refresh: () => void,
+	el: HTMLElement, draft: BadgeDefinition, others: BadgeDefinition[], refresh: () => void, owner = '',
 ): void {
 	const keySetting = new Setting(el)
 		.setName('Key')
-		.setDesc('What you type: [!!key:text]. Lowercase, no spaces, ":" or "|".');
+		.setDesc(owner
+			? `Set by ${owner}. Change it there; renaming here would break badges in your notes.`
+			: 'What you type: [!!key:text]. Lowercase, no spaces, ":" or "|".');
 	const warning = keySetting.descEl.createDiv({ cls: 'badge-setting-warning' });
 	// Warns while another badge already uses this key.
 	const checkKey = () => {
@@ -21,7 +24,8 @@ export function basicFields(
 			checkKey();
 			refresh();
 		});
-		window.setTimeout(() => t.inputEl.focus(), 0);
+		t.inputEl.disabled = !!owner;
+		if (!owner) window.setTimeout(() => t.inputEl.focus(), 0);
 	});
 	checkKey();
 

@@ -41,7 +41,7 @@ export function badgeRow(el: HTMLElement, ctx: SettingsContext, badge: BadgeDefi
 		});
 	}
 
-	row.addExtraButton((btn) => tooltip(btn, 'Delete badge').setIcon('trash').onClick(async () => {
+	row.addExtraButton((btn) => tooltip(btn, badge.source ? 'Delete badge (its plugin may add it back)' : 'Delete badge').setIcon('trash').onClick(async () => {
 		all.remove(badge);
 		await ctx.saveAndRedraw();
 	}));
