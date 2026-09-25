@@ -14,6 +14,7 @@ export function applyBadgeStyle(el: HTMLElement, def: BadgeDefinition): void {
 	if (bg) el.style.setProperty('--badge-bg-color', bg);
 	if (def.borderRadius != null) el.style.setProperty('--badge-radius', `${def.borderRadius}px`);
 	if (def.fontSize != null) {
+		el.addClass('inline-badge-sized'); // styles.css centres its contents instead of the fixed top padding
 		el.style.setProperty('--inline-badge-font-size', `${def.fontSize}em`);
 		el.style.setProperty('--badge-icon-size', `${(def.fontSize * 1.1).toFixed(3)}em`); // icon keeps pace with the text
 	}

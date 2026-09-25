@@ -48,7 +48,7 @@ body {
 /* Emoji used as the icon, sized like the Lucide icons. */
 .inline-badge .inline-badge-emoji {
 	font-size: var(--badge-icon-size, 14px);
-	line-height: 1;
+	line-height: 1.5;
 	padding-block: .2em;
 }
 .inline-badge .inline-badge-extra,
@@ -65,6 +65,18 @@ body {
 /* Icon-only badge (no label): drop the empty title so the padding stays even. */
 .inline-badge .inline-badge-title-inner:empty {
 	display: none;
+}
+/* Badge with its own font size: centre text against the icon. The fixed 2px top
+   padding above is tuned for the default size and doesn't scale, so drop it here. */
+.inline-badge.inline-badge-sized {
+	align-items: center;
+}
+.inline-badge.inline-badge-sized .inline-badge-title-inner,
+.inline-badge.inline-badge-sized .inline-badge-divider {
+	padding-top: 0;
+}
+.inline-badge.inline-badge-sized .inline-badge-title-inner {
+	padding-right: 0.3em;
 }
 /* Prefix before a "|" divider, e.g. a parent group: "[icon] PhD | [icon] Report". */
 .inline-badge .inline-badge-divider {
