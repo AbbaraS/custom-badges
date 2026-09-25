@@ -1,6 +1,7 @@
 import { setIcon } from 'obsidian';
 import type { BadgeDefinition } from '../models/BadgeDefinition';
 import { getBadge } from '../models/badgeIndex';
+import { badgeTitle } from '../models/badgeTitle';
 import { setBadgeIcon } from '../utils/icon';
 import { capitalise } from '../utils/text';
 import { applyBadgeStyle } from './applyBadgeStyle';
@@ -20,10 +21,10 @@ export function buildBadge(text: string, override?: BadgeDefinition): HTMLElemen
 	const { type, extras, link } = parsed;
 	const def = override ?? getBadge(type);
 
-	// Shorthand [!!key]: label from settings, else the capitalised key ([!!bug] -> "Bug").
+	// Shorthand [!!key]: label from settings (none = icon only), else the capitalised key ([!!bug] -> "Bug").
 	let content = parsed.content;
 	if (content === null) {
-		if (def) content = def.label.trim() || def.key;
+		if (def) content = badgeTitle(def);
 		else if (type && !type.includes('|')) content = capitalise(type);
 		else return syntaxError();
 	}

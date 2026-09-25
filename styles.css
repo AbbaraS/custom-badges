@@ -62,6 +62,10 @@ body {
 	padding-inline-end: 5px;
 	padding-top: 2px;
 }
+/* Icon-only badge (no label): drop the empty title so the padding stays even. */
+.inline-badge .inline-badge-title-inner:empty {
+	display: none;
+}
 .inline-badge[data-inline-badge="customized"] {
 	color: rgba(var(--customize-badge-color), 1);
 	background-color: rgba(var(--customize-badge-color),.177);

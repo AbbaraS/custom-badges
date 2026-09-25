@@ -41,7 +41,7 @@ Add or edit a badge in the editor window; the preview at the top updates as you 
 | field | details |
 | ----- | ------- |
 | Key | what you type: `[!!key:text]` |
-| Label | text shown for the shorthand `[!!key]` |
+| Label | text shown for the shorthand `[!!key]`; leave empty for an icon-only badge |
 | Icon | a [Lucide icon](https://lucide.dev/icons/) name, e.g. `smile-plus`, or an emoji, e.g. `🚀` |
 | Badge colour | main tint: `#hex`, `R,G,B`, `rgb(…)` or a CSS variable such as `var(--color-red-rgb)` |
 | Text colour | optional; defaults to the badge colour |
@@ -74,7 +74,7 @@ For badges defined in settings, you can omit the value and colon:
 `[!!KEY]`
 ```
 
-For example, `[!!success]` displays as "Success" with a checkmark icon. For a key that isn't in settings, the key itself is shown, e.g. `[!!rocket]` displays as "Rocket".
+For example, `[!!success]` displays as "Success" with a checkmark icon. A badge with no label shows just its icon. For a key that isn't in settings, the key itself is shown, e.g. `[!!rocket]` displays as "Rocket".
 
 > [!TIP]
 > In addition to the badges in settings, you can use any [Lucide icon](https://lucide.dev/icons/) name as the `KEY`. For example: `[!!rocket:launched]` or `[!!heart:favorite]`.
