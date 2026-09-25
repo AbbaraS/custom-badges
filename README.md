@@ -24,22 +24,30 @@ A light-weight plugin for displaying inline "badges" in [Obsidian.md](https://gi
 
 ### Commands
 
-**Insert badge** — opens a fuzzy-search picker listing every badge defined in settings, each with its icon. Choosing one inserts the badge at the cursor. If text is selected when you run the command, that text becomes the badge value; otherwise the badge gets a placeholder (see [Settings](#settings)).
+**Insert badge** — opens a fuzzy-search picker listing every badge defined in settings, each rendered exactly as it looks in a note. Choosing one inserts the badge at the cursor. If text is selected when you run the command, that text becomes the badge value; otherwise the badge gets a placeholder (see [Settings](#settings)).
 
 Bind it to a hotkey under Settings > Hotkeys, or run it from the command palette.
 
 ### Settings
 
-All badge types live in **Settings > Custom Badges**. New installs start with five defaults — `note`, `info`, `success`, `warning` and `error` — which you can edit or delete like any badge you add yourself. Deleted defaults can be brought back with **Restore default badges**.
+All badge types live in **Settings > Custom Badges**, in three groups:
 
-Each badge has:
+- **Default** — the five built-ins (`note`, `info`, `success`, `warning`, `error`). Edit or delete them freely; the reset button restores one, and **Restore default badges** brings back deleted ones.
+- **One group per plugin** — badges another plugin created (see [For plugin developers](#for-plugin-developers)), under that plugin's name.
+- **Your badges** — ones you made with **Add badge**.
+
+Add or edit a badge in the editor window; the preview at the top updates as you type. Each badge has:
 
 | field | details |
 | ----- | ------- |
 | Key | what you type: `[!!key:text]` |
 | Label | text shown for the shorthand `[!!key]` |
-| Icon | a [Lucide icon](https://lucide.dev/icons/) name, e.g. `smile-plus` |
-| Colour | `#hex`, `R,G,B`, `rgb(…)` or a CSS variable such as `var(--color-red-rgb)` |
+| Icon | a [Lucide icon](https://lucide.dev/icons/) name, e.g. `smile-plus`, or an emoji, e.g. `🚀` |
+| Badge colour | main tint: `#hex`, `R,G,B`, `rgb(…)` or a CSS variable such as `var(--color-red-rgb)` |
+| Text colour | optional; defaults to the badge colour |
+| Background colour | optional; defaults to a faint tint of the badge colour |
+| Border radius | optional, in px |
+| Font size | optional, in em (relative to the note text) |
 | Placeholder | what **Insert badge** puts in the badge when nothing is selected: empty, the badge's label, or custom text. "Default" uses the global **Default placeholder** setting. |
 
 > [!NOTE]
@@ -294,6 +302,20 @@ Plain-text badges include a `data-badge-type` attribute containing the `KEY` val
 Badges can act similarly to a key-value store(database) for querying via default search or [Dataview](https://github.com/blacksmithgu/obsidian-dataview) plugin.
 
 View and copy example dataview queries: [badges-dataview](assets/badges-dataview.md)
+
+### For plugin developers
+
+Other plugins can add their own badges, listed in settings under the plugin's name:
+
+```ts
+const badges = app.plugins.getPlugin('custom-badges');
+// Replaces every badge your plugin added before.
+await badges?.setPluginBadges('your-plugin-id', [
+	{ key: 'todo', label: 'To do', icon: 'circle', color: '#4caf50' },
+]);
+```
+
+Editing `settings.badges` directly and calling `saveSettings()` also works; set `source: 'your-plugin-id'` on each badge.
 
 ### Development
 

@@ -17,8 +17,9 @@ body {
 	/* Badge colour as "r, g, b" or var(--…-rgb). Set per badge from the plugin
 	   settings; badges without a colour use the normal text colour. */
 	--badge-color: var(--mono-rgb-100);
-	color: rgba(var(--badge-color), 1);
-	background-color: rgba(var(--badge-color), .123);
+	/* Optional per-badge overrides (text, background) set from the badge editor. */
+	color: var(--badge-text-color, rgba(var(--badge-color), 1));
+	background-color: var(--badge-bg-color, rgba(var(--badge-color), .123));
 }
 .inline-badge .inline-badge-extra::after {
 	content: ':';
@@ -40,8 +41,14 @@ body {
 	padding: .3em;
 }
 .inline-badge .inline-badge-icon svg{
-	width: 14px;
-	height: 14px;
+	width: var(--badge-icon-size, 14px);
+	height: var(--badge-icon-size, 14px);
+}
+/* Emoji used as the icon, sized like the Lucide icons. */
+.inline-badge .inline-badge-emoji {
+	font-size: var(--badge-icon-size, 14px);
+	line-height: 1;
+	padding-block: .2em;
 }
 .inline-badge .inline-badge-extra,
 .inline-badge .inline-badge-icon {
@@ -117,15 +124,15 @@ body {
 	width: auto;
 }
 
+/* Insert badge picker: the real badge, then its key. */
 .badge-picker-suggestion {
-  display: flex;
-  align-items: center;
-  gap: var(--size-2-3);
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
 }
-.badge-picker-icon {
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
+.badge-picker-key {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
 }
 
 .badge-setting-warning {
@@ -147,10 +154,6 @@ body {
 	align-items: center;
 	gap: var(--size-4-2);
 }
-.badge-setting-syntax-label {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
-}
 .badge-setting-syntax {
 	font-size: var(--font-ui-smaller);
 }
@@ -160,4 +163,42 @@ body {
 	opacity: 0.35;
 	cursor: default;
 	pointer-events: none;
+}
+
+/* Clicking a badge in the settings list opens its editor. */
+.badge-setting-preview-clickable .inline-badge {
+	cursor: pointer;
+}
+
+/* Space above each group (Default, plugin name, Your badges). */
+.badge-group-heading {
+	margin-top: var(--size-4-4);
+}
+
+/* Badge editor: live preview pinned above the scrolling fields. */
+.badge-editor-modal .modal-content {
+	padding-top: 0;
+}
+.badge-editor-preview {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: var(--size-4-4) 0;
+	margin-bottom: var(--size-4-2);
+	background-color: var(--modal-background, var(--background-primary));
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+.badge-editor-preview .badge-setting-preview {
+	justify-content: center;
+}
+.badge-slider-value {
+	min-width: 4.5em;
+	text-align: end;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* Shown in place of a badge whose text can't be parsed. */
+.inline-badge-error {
+	color: var(--text-error);
 }
