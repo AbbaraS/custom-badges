@@ -7,6 +7,8 @@ export interface BadgeDefinition {
 	key: string;                  // what you type: [!!key:...]
 	label: string;                // display text for the shorthand [!!key]
 	icon: string;                 // Lucide icon name or an emoji
+	prefixIcon: string;           // icon shown first, before a "|" divider; empty = none
+	prefixLabel: string;          // text after the prefix icon, e.g. a parent group; empty = none
 	color: string;                // tint: "#e5534b", "144,144,144" or "var(--color-red-rgb)"; empty = text colour
 	textColor: string;            // same formats; empty = the tint
 	backgroundColor: string;      // same formats; empty = a faint tint

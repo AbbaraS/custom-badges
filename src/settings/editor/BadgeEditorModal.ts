@@ -6,6 +6,7 @@ import { pluginName } from '../../integrations/obsidianPlugins';
 import type { SettingsContext } from '../context';
 import { basicFields } from './basicFields';
 import { placeholderFields } from './placeholderFields';
+import { prefixFields } from './prefixFields';
 import { renderBadgePreview } from './renderBadgePreview';
 import { styleFields } from './styleFields';
 
@@ -41,6 +42,7 @@ export class BadgeEditorModal extends Modal {
 
 		const others = settings.badges.filter((b) => b !== this.badge);
 		basicFields(contentEl, this.draft, others, refresh, owner);
+		prefixFields(contentEl, this.draft, refresh, owner);
 		new Setting(contentEl).setName('Style').setHeading();
 		styleFields(contentEl, this.draft, refresh);
 		new Setting(contentEl).setName('Inserting').setHeading();

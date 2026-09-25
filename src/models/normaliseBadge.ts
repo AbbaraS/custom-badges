@@ -10,6 +10,8 @@ export function normaliseBadge(raw: Partial<BadgeDefinition>): BadgeDefinition {
 		key: (raw.key ?? '').trim().toLowerCase(),
 		label: raw.label ?? '',
 		icon: (raw.icon ?? '').trim(),
+		prefixIcon: (raw.prefixIcon ?? '').trim(),
+		prefixLabel: raw.prefixLabel ?? '',
 		color: raw.color ?? '',
 		textColor: raw.textColor ?? '',
 		backgroundColor: raw.backgroundColor ?? '',

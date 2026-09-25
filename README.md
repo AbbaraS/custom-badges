@@ -315,6 +315,8 @@ await badges?.setPluginBadges('your-plugin-id', [
 ]);
 ```
 
+Optional `prefixIcon` and `prefixLabel` show a leading part before a `|` divider, e.g. a parent group: `{ key: 'phd-report', label: 'Report', icon: '📗', prefixIcon: '📚', prefixLabel: 'PhD' }` shows "📚 PhD | 📗 Report".
+
 Send only the fields your plugin owns: anything you leave out (text colour, font size, placeholder…) keeps what the user set in Custom Badges.
 
 To keep edits the user makes to your badges in Custom Badges settings, add this method to your plugin class. It's called after the user saves; update your own data, then sync again:

@@ -66,6 +66,13 @@ body {
 .inline-badge .inline-badge-title-inner:empty {
 	display: none;
 }
+/* Prefix before a "|" divider, e.g. a parent group: "[icon] PhD | [icon] Report". */
+.inline-badge .inline-badge-divider {
+	display: inline-block;
+	font-size: var(--inline-badge-font-size);
+	padding-top: 2px;
+	opacity: .7;
+}
 .inline-badge[data-inline-badge="customized"] {
 	color: rgba(var(--customize-badge-color), 1);
 	background-color: rgba(var(--customize-badge-color),.177);

@@ -5,6 +5,7 @@ import { badgeTitle } from '../models/badgeTitle';
 import { setBadgeIcon } from '../utils/icon';
 import { capitalise } from '../utils/text';
 import { applyBadgeStyle } from './applyBadgeStyle';
+import { addBadgePrefix } from './addBadgePrefix';
 import { parseBadge } from './parseBadge';
 import { wrapInLink } from './wrapInLink';
 
@@ -30,6 +31,7 @@ export function buildBadge(text: string, override?: BadgeDefinition): HTMLElemen
 	}
 
 	const el = createSpan({ cls: 'inline-badge' });
+	if (def) addBadgePrefix(el, def);
 	const iconEl = el.createSpan();
 	const extraEl = createSpan();
 	const titleEl = createSpan({ cls: 'inline-badge-title-inner' });

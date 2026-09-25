@@ -4,7 +4,7 @@ export const LUCIDE_ICONS_URL = 'https://lucide.dev/icons/';
 
 // Shared empty style/placeholder fields, so the list below stays short.
 const base = {
-	textColor: '', backgroundColor: '', borderRadius: null, fontSize: null,
+	prefixIcon: '', prefixLabel: '', textColor: '', backgroundColor: '', borderRadius: null, fontSize: null,
 	placeholder: 'default', placeholderText: '', source: '',
 } as const;
 
