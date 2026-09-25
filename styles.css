@@ -10,7 +10,8 @@ body {
 	margin: 0;
 	padding: 0;
 	vertical-align: middle;
-	border-radius: var(--inline-badge-border-radius);
+	/* --badge-radius = radius set in the badge editor (other plugins' CSS can read it too). */
+	border-radius: var(--badge-radius, var(--inline-badge-border-radius));
 	font-weight: 600;
 	border: var(--inline-badge-border);
 	cursor: auto;
