@@ -1,9 +1,6 @@
 import type { BadgeDefinition } from './BadgeDefinition';
 import { normaliseBadge } from './normaliseBadge';
-
-// Drops undefined fields so they don't overwrite values when spread.
-const definedOnly = <T extends object>(obj: T): Partial<T> =>
-	Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
+import { definedOnly } from '../utils/definedOnly';
 
 // Swap every badge owned by `pluginId` for `incoming`, tagged with that plugin.
 // Fields a plugin doesn't send (e.g. font size set in our editor) keep their saved value.

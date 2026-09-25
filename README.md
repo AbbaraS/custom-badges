@@ -325,6 +325,12 @@ async onCustomBadgeEdited(badge: { key: string; label: string; icon: string; col
 }
 ```
 
+To show a badge in your own settings exactly as notes will show it, with unsaved edits applied live:
+
+```ts
+const el = badges?.renderBadge('todo', { label: 'To do', color: '#ff9800' });
+```
+
 The key of a plugin's badge can't be changed in Custom Badges, since renaming it would break badges in notes.
 
 Editing `settings.badges` directly and calling `saveSettings()` also works; set `source: 'your-plugin-id'` on each badge.

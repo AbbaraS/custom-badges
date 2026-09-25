@@ -10,6 +10,7 @@ import { replacePluginBadges } from './models/pluginBadges';
 import { BadgePickerModal } from './picker/BadgePickerModal';
 import { livePreviewPlugin } from './render/livePreview';
 import { badgePostProcessor } from './render/postProcessor';
+import { previewBadge } from './render/previewBadge';
 import { BadgesSettingTab } from './settings/SettingsTab';
 import { refreshOpenNotes } from './utils/refreshViews';
 
@@ -69,5 +70,11 @@ export default class BadgesPlugin extends Plugin {
 		this.settings.badges = replacePluginBadges(this.settings.badges, pluginId, badges);
 		await this.saveSettings();
 		return this.settings.badges.filter((b) => b.source === pluginId).map((b) => b.key);
+	}
+
+	// Public API: a badge element exactly as notes show it, for live previews in other plugins' settings.
+	// `changes` are unsaved edits laid over the saved badge (styling set here is kept).
+	renderBadge(key: string, changes: Partial<BadgeDefinition> = {}, text?: string): HTMLElement {
+		return previewBadge(key, changes, text);
 	}
 }
